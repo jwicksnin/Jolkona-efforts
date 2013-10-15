@@ -1,0 +1,35 @@
+/* Function to get individual addresses from a spreadsheet, insert address as text into an email,
+provide personalized link to form pre-populated with the current address.  Form allows
+user to confirm the current address or change within the form.  User submits 
+and address is saved in a different spreadsheet. 
+NOTE: If using a different form, the values for "&entry" in the url will be different */
+
+function sendEmails() {
+  var ss = SpreadsheetApp.openById('ID here'); //Change this to real spreadsheet id
+  var sheet = ss.getSheets()[0];
+  var startRow = 2;  // First row of data to process
+  var numRows = 3;   // Number of rows to process
+  var dataRange = sheet.getRange(startRow, 1, numRows, 6); 
+  var data = dataRange.getValues();
+  var formURL = SpreadsheetApp.openById('ID here').getFormUrl(); //Finds the form url based on the spreadsheet receiving its responses
+  for (i in data) {
+    //change the values of row[] depending on where the addresses are in the spreadsheet
+    var row = data[i];
+    var emailAddress = row[1];  
+    var name = row[0];
+    var address = row[2];       
+    var addressTwo = row[3];
+    var cityState = row[4];
+    var zip = row[5];
+    var subject = "We're Sending You a Gift! Please Confirm Your Address";
+    var fullAddress = ("\n" + address + " " + addressTwo + " " + cityState + " " +zip + "\n");
+    var indFormUrl = formURL+'?entry.x='+emailAddress+'&entry.y='+encode(address)+'&entry.z='+encode(addressTwo)+'&entry.a='+encode(cityState)+'&entry.b='+encode(zip);
+    var textMessage = "We're sending you a gift and this is your current address: \n" + fullAddress +'\n Please confirm if this is correct or needs to change: \n  \n ' + indFormUrl;
+    var htmlMessage = "<h1>Hello " + name + "</h1> <p> We're sending you a gift and this is your current address: <\p> <p> " + fullAddress + " </p> <p> Please <a href=" + indFormUrl + ">confirm</a> or <a href =" + indFormUrl + ">change</a> to ensure your receive your gift</p>";
+    MailApp.sendEmail(emailAddress, subject, textMessage, {htmlBody: htmlMessage});
+  }
+}
+
+function encode(unencoded) {
+   return encodeURIComponent(unencoded.toString());
+}
