@@ -1,0 +1,109 @@
+/*A custom script that creates new buttons on a spreadsheet UI.  One button sends an initial email using values from a spreadsheet, 
+the other button finds who has not yet responded and sends a reminder email to them only.  Useful for confirming customer contact information
+with a convenient UI in the spreadsheet itself.  Thanks for Google for tips and tricks in using their script! */
+
+
+function onOpen() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var menuEntries = [];
+  menuEntries.push({name: "Send Reminder Eamil", functionName: "compareSS"});
+  menuEntries.push({name: "Send Initial Email", functionName: "sendEmails"});
+  ss.addMenu("Send Address Emails", menuEntries);  //creates a UI menu in the associated spreadsheet so users don't need to access apps script directly
+}
+
+function compareSS() {
+  ss = SpreadsheetApp.openById('yourSSIDHere');
+  Sheet1 = ss.getSheets()[0];  //get original and response sheets
+  Sheet2 = ss.getSheets()[4];
+  var ArrayOld = merge(Sheet1, 2, 1, 6, 1); 
+  var ArrayResponses = merge(Sheet2, 2, 2, 8, 1); //change values based on position of information in your ss
+  var list = new Array();
+  
+  for (var i = 0; i < ArrayOld.length; i++) {  //compares the names in the original and response spreadsheet
+    if (ArrayResponses.indexOf(ArrayOld[i]) == -1) {
+      var rowNumber = i + 2;
+      var person = merge(Sheet1, rowNumber, 1, 1, 6);
+      list.push(person);
+    } 
+  }
+  ss2 = SpreadsheetApp.create("NewNames"); //create a new ss to fill with those who need a gentle reminder
+  var ssID = ss2.getId();
+  Sheet3 = ss2.getSheets()[0];
+  var range = Sheet3.getRange("A1:F3");
+  
+  var numRows = range.getNumRows();
+  var numCols = range.getNumColumns();
+  for (var i = 1; i <= numRows; i++) {  //puts the address data into new ss
+    for (var j = 1; j <= numCols; j++) {
+      var currentCell = range.getCell(i,j);
+      currentCell.setValue(list[i-1][j-1]);
+    }
+  }
+  sendReminderEmail(ssID, 1, 1, list.length, 6);
+}
+
+function merge(sheet, row, col, rows, cols) {  //flatten 2D arrays to easier to compare for names
+  var Array = sheet.getRange(row, col, rows, cols).getValues();
+  Logger.log("This is Array " + Array);
+  var ArrayMerged = [];
+  ArrayMerged = ArrayMerged.concat.apply(ArrayMerged, Array);
+  return ArrayMerged;
+}
+
+function sendReminderEmail(ssID, StartRow, StartCol, numRows, numCols) {
+var ss = SpreadsheetApp.openById(ssID); 
+  var sheet = ss.getSheets()[0];
+  var dataRange = sheet.getRange(StartRow, StartCol, numRows, numCols); 
+  var data = dataRange.getValues();
+  var form = FormApp.openById('yourFormIDHere');
+  var destination = form.setDestination(FormApp.DestinationType.SPREADSHEET, ss.getId());
+  var formURL = form.getPublishedUrl();
+  for (i in data) {
+    var row = data[i];
+    var emailAddress = row[1]; 
+    var name = row[0];
+    var address = row[2]; 
+    var addressTwo = row[3];
+    var cityState = row[4];
+    var zip = row[5];
+    var subject = "REMINDER: We're Sending You a Gift! Please Confirm Your Address";
+    var fullAddress = ("\n" + address + " " + addressTwo + " " + cityState + " " +zip + "\n");
+    var indFormUrl = formURL+'?entry.xyz='+emailAddress+'&entry.abc='+encode(address)+'&entry.def='+encode(addressTwo)+'&entry.nop='+encode(cityState)+'&entry.qrs='+encode(zip);
+    var textMessage = "We're sending you a gift and this is your current address: \n" + fullAddress +'\n Please confirm if this is correct or needs to change: \n  \n ' + indFormUrl;
+    var htmlMessage = "<h1>Hello " + name + "</h1> <p> We're sending you a gift and this is your current address: <\p> <p> " + fullAddress + " </p> <p> Please <a href=" + indFormUrl + ">confirm</a> or <a href =" + indFormUrl + ">change</a> to ensure your receive your gift</p>";
+    MailApp.sendEmail(emailAddress, subject, textMessage, {htmlBody: htmlMessage});
+  }
+}
+
+/*Almost the same as function sendReminderEmails except no parameters can be passed to this because it is part of the onlick handler menu*/
+function sendEmails() {
+  var ss = SpreadsheetApp.openById('yourSSIDHere'); //Change this to real spreadsheet id
+  var sheet = ss.getSheets()[0];
+  var startRow = 2;  // First row of data to process
+  var numRows = 3;   // Number of rows to process
+  var dataRange = sheet.getRange(startRow, 1, numRows, 6); 
+  var data = dataRange.getValues();
+  var form = FormApp.openById('yourFormIDHere');
+  var destination = form.setDestination(FormApp.DestinationType.SPREADSHEET, ss.getId());
+  var formURL = form.getPublishedUrl();
+  for (i in data) {
+    var row = data[i];
+    var emailAddress = row[1];  
+    var name = row[0];
+    var address = row[2];       
+    var addressTwo = row[3];
+    var cityState = row[4];
+    var zip = row[5];
+    var subject = "We're Sending You a Gift! Please Confirm Your Address";
+    var fullAddress = ("\n" + address + " " + addressTwo + " " + cityState + " " +zip + "\n");
+    //This uses dummy values for the entries.  For the individual pre-filled url, getPrefilledURL from the form itself, then see what values belong after "entry."
+    var indFormUrl = formURL+'?entry.xyz='+emailAddress+'&entry.abc='+encode(address)+'&entry.def='+encode(addressTwo)+'&entry.nop='+encode(cityState)+'&entry.qrs='+encode(zip);
+    var textMessage = "We're sending you a gift and this is your current address: \n" + fullAddress +'\n Please confirm if this is correct or needs to change: \n  \n ' + indFormUrl;
+    var htmlMessage = "<h1>Hello " + name + "</h1> <p> We're sending you a gift and this is your current address: <\p> <p> " + fullAddress + " </p> <p> Please <a href=" + indFormUrl + ">confirm</a> or <a href =" + indFormUrl + ">change</a> to ensure your receive your gift</p>";
+    MailApp.sendEmail(emailAddress, subject, textMessage, {htmlBody: htmlMessage});
+  }
+}
+
+function encode(unencoded) {
+   return encodeURIComponent(unencoded.toString());
+}
